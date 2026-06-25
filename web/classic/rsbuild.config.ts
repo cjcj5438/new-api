@@ -10,6 +10,33 @@ const semiUiDir = path.resolve(
   path.dirname(require.resolve('@douyinfe/semi-ui')),
   '../..',
 )
+const semiUiDateFnsDir = path.resolve(semiUiDir, 'node_modules/date-fns')
+const workspaceNodeModulesDir = path.resolve(__dirname, '../node_modules')
+const visactorSharedPackages = [
+  'react-vchart',
+  'vchart',
+  'vdataset',
+  'vgrammar-core',
+  'vgrammar-hierarchy',
+  'vgrammar-projection',
+  'vgrammar-sankey',
+  'vgrammar-util',
+  'vgrammar-wordcloud',
+  'vgrammar-wordcloud-shape',
+  'vrender-animate',
+  'vrender-components',
+  'vrender-core',
+  'vrender-kits',
+  'vscale',
+  'vutils',
+  'vutils-extension',
+] as const
+const visactorAliases = Object.fromEntries(
+  visactorSharedPackages.map((pkg) => [
+    `@visactor/${pkg}`,
+    path.resolve(workspaceNodeModulesDir, `@visactor/${pkg}`),
+  ]),
+) as Record<string, string>
 
 export default defineConfig(({ envMode }) => {
   const env = loadEnv({ mode: envMode, prefixes: ['VITE_'] })
@@ -43,10 +70,12 @@ export default defineConfig(({ envMode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        ...visactorAliases,
         '@douyinfe/semi-ui/dist/css/semi.css': path.resolve(
           semiUiDir,
           'dist/css/semi.css',
         ),
+        'date-fns': semiUiDateFnsDir,
       },
     },
     html: {
