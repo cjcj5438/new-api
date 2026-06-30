@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   ListOrdered,
   Shuffle,
   SlidersHorizontal,
@@ -104,6 +105,14 @@ function parseIonetMeta(otherInfo: string | null | undefined): null | {
     return null
   }
   return null
+}
+
+function getChannelExternalUrl(channel: Channel): string | null {
+  const baseUrl =
+    typeof channel.base_url === 'string' ? channel.base_url.trim() : ''
+  if (!baseUrl) return null
+  if (/^https?:\/\//i.test(baseUrl)) return baseUrl
+  return `https://${baseUrl.replace(/^\/+/, '')}`
 }
 
 /**
@@ -584,16 +593,36 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
           const settings = parseChannelSettings(channel.setting)
           const isPassThrough = settings.pass_through_body_enabled === true
           const hasParamOverride = Boolean(channel.param_override?.trim())
+          const channelExternalUrl = getChannelExternalUrl(channel)
+          const displayName = sensitiveVisible ? name : SENSITIVE_MASK
 
           return (
             <div className='flex items-center gap-2'>
               <div className='flex flex-col gap-1'>
                 <div className='flex items-center gap-1.5'>
-                  <TruncatedText
-                    text={sensitiveVisible ? name : SENSITIVE_MASK}
-                    className='font-medium'
-                    maxWidth='max-w-[180px]'
-                  />
+                  {channelExternalUrl ? (
+                    <a
+                      href={channelExternalUrl}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='text-primary hover:text-primary/80 inline-flex min-w-0 items-center gap-1 underline-offset-4 hover:underline'
+                      onClick={(event) => event.stopPropagation()}
+                      title={channelExternalUrl}
+                    >
+                      <TruncatedText
+                        text={displayName}
+                        className='font-medium'
+                        maxWidth='max-w-[180px]'
+                      />
+                      <ExternalLink className='h-3.5 w-3.5 shrink-0' />
+                    </a>
+                  ) : (
+                    <TruncatedText
+                      text={displayName}
+                      className='font-medium'
+                      maxWidth='max-w-[180px]'
+                    />
+                  )}
                   {isPassThrough && (
                     <TooltipProvider delay={100}>
                       <Tooltip>

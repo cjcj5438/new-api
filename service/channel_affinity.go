@@ -641,6 +641,19 @@ func ShouldSkipRetryAfterChannelAffinityFailure(c *gin.Context) bool {
 	return meta.SkipRetry
 }
 
+// HandleChannelAffinityFailure releases the current request from affinity retry
+// suppression after a channel failure so the relay loop can try other channels.
+func HandleChannelAffinityFailure(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	c.Set(ginKeyChannelAffinitySkipRetry, false)
+	if ShouldKeepChannelAffinityOnChannelDisabled() {
+		return false
+	}
+	return ClearCurrentChannelAffinityCache(c)
+}
+
 func ClearCurrentChannelAffinityCache(c *gin.Context) bool {
 	if c == nil {
 		return false

@@ -34,6 +34,7 @@ import '@/lib/dayjs'
 import { applyFaviconToDom } from '@/lib/dom-utils'
 import { initializeFrontendCache } from '@/lib/frontend-cache'
 import { handleServerError } from '@/lib/handle-server-error'
+import { ensureVChartBrowserEnv } from '@/lib/vchart-env'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
@@ -45,6 +46,7 @@ import './styles/index.css'
 
 // Ensure VChart theme is initialized before any chart mounts (prevents white default theme flash)
 // VChart theme is driven by our ThemeProvider (html.light/html.dark) via per-chart `theme` prop.
+ensureVChartBrowserEnv()
 initializeFrontendCache()
 installBuildMetadata()
 

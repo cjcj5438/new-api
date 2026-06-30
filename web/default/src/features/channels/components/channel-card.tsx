@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { memo } from 'react'
+import { ExternalLink } from 'lucide-react'
 import { flexRender, type Row } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
@@ -58,6 +59,15 @@ function ChannelCardComponent({ row }: { row: Row<Channel> }) {
   }
 
   const groups = parseGroupsList(row.original.group ?? '')
+  const channelExternalUrl =
+    !isTagRow && typeof row.original.base_url === 'string'
+      ? row.original.base_url.trim()
+      : ''
+  const normalizedChannelExternalUrl = channelExternalUrl
+    ? /^https?:\/\//i.test(channelExternalUrl)
+      ? channelExternalUrl
+      : `https://${channelExternalUrl.replace(/^\/+/, '')}`
+    : null
 
   const selectCell = renderCell('select')
   const typeCell = renderCell('type')
@@ -109,7 +119,21 @@ function ChannelCardComponent({ row }: { row: Row<Channel> }) {
                 #{sensitiveVisible ? row.original.id : SENSITIVE_MASK}
               </div>
             )}
-            {nameCell}
+            {normalizedChannelExternalUrl ? (
+              <a
+                href={normalizedChannelExternalUrl}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='inline-flex min-w-0 items-center gap-1 text-inherit'
+                onClick={(event) => event.stopPropagation()}
+                title={normalizedChannelExternalUrl}
+              >
+                <span className='min-w-0 overflow-hidden'>{nameCell}</span>
+                <ExternalLink className='text-primary h-3.5 w-3.5 shrink-0' />
+              </a>
+            ) : (
+              nameCell
+            )}
           </div>
           <div className='min-w-0'>
             <div className={cn('mb-1', labelClass)}>{fieldLabels.balance}</div>

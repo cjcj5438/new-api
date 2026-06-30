@@ -29,6 +29,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowRight,
+  Calculator,
   HelpCircle,
   Loader2,
   Sparkles,
@@ -131,6 +132,7 @@ import {
   getAdvancedCustomStats,
   transformChannelToFormDefaults,
   type ChannelFormValues,
+  computePriorityFromFormula,
   deduplicateKeys,
   getChannelTypeIcon,
   getKeyPromptForType,
@@ -372,6 +374,7 @@ export function ChannelMutateDrawer({
   const currentGroups = form.watch('group')
   const currentType = form.watch('type')
   const currentBaseUrl = form.watch('base_url')
+  const currentPriorityFormula = form.watch('priority_formula')
   const currentModels = form.watch('models')
   const currentName = form.watch('name')
   const currentModelMapping = form.watch('model_mapping')
@@ -649,6 +652,20 @@ export function ChannelMutateDrawer({
       shouldValidate: true,
     })
   }, [currentBaseUrl, currentType, form])
+
+  const handlePriorityFormulaCalculate = useCallback(() => {
+    const currentPriority = form.getValues('priority') ?? 0
+    const nextPriority = computePriorityFromFormula(
+      form.getValues('priority_formula'),
+      currentPriority
+    )
+
+    form.setValue('priority', nextPriority, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    })
+  }, [form])
 
   useEffect(() => {
     if (isEditing || supportsMultiKeyAddMode) return
@@ -2586,6 +2603,41 @@ export function ChannelMutateDrawer({
                                 </FormControl>
                                 <FormDescription>
                                   {t(FIELD_DESCRIPTIONS.PRIORITY)}
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name='priority_formula'
+                            render={({ field }) => (
+                              <FormItem>
+                                <div className='flex items-center justify-between gap-2'>
+                                  <FormLabel>{t('Priority Formula')}</FormLabel>
+                                  <Button
+                                    type='button'
+                                    variant='outline'
+                                    size='sm'
+                                    className='h-8 shrink-0'
+                                    onClick={handlePriorityFormulaCalculate}
+                                    disabled={!currentPriorityFormula?.trim()}
+                                  >
+                                    <Calculator data-icon='inline-start' />
+                                    {t('Calculate')}
+                                  </Button>
+                                </div>
+                                <FormControl>
+                                  <Input
+                                    placeholder='1/1*0.123456'
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  {t(
+                                    'Example: 1/1*0.123456. Click Calculate to multiply the result by 1000 when needed, round it to an integer, and store it as a negative Priority value.'
+                                  )}
                                 </FormDescription>
                                 <FormMessage />
                               </FormItem>

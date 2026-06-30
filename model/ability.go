@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -105,22 +106,62 @@ func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {
 	return channelQuery, nil
 }
 
-func GetChannel(group string, model string, retry int, requestPath string) (*Channel, error) {
+func GetChannel(group string, model string, retry int, requestPath string, excludedChannelIDs []int) (*Channel, error) {
 	var abilities []Ability
 
-	var err error = nil
-	channelQuery, err := getChannelQuery(group, model, retry)
+	err := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
+		Order("priority DESC").
+		Order("weight DESC").
+		Find(&abilities).Error
 	if err != nil {
 		return nil, err
 	}
-	if common.UsingMainDatabase(common.DatabaseTypeSQLite) || common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
-	} else {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
+
+	if len(excludedChannelIDs) > 0 {
+		excluded := make(map[int]struct{}, len(excludedChannelIDs))
+		for _, channelID := range excludedChannelIDs {
+			excluded[channelID] = struct{}{}
+		}
+		filtered := make([]Ability, 0, len(abilities))
+		for _, ability := range abilities {
+			if _, skip := excluded[ability.ChannelId]; skip {
+				continue
+			}
+			filtered = append(filtered, ability)
+		}
+		abilities = filtered
+		retry = 0
 	}
-	if err != nil {
-		return nil, err
+
+	if len(abilities) == 0 {
+		return nil, nil
 	}
+
+	uniquePriorities := make(map[int]struct{})
+	for _, ability := range abilities {
+		uniquePriorities[int(lo.FromPtr(ability.Priority))] = struct{}{}
+	}
+	priorities := make([]int, 0, len(uniquePriorities))
+	for priority := range uniquePriorities {
+		priorities = append(priorities, priority)
+	}
+	if len(priorities) == 0 {
+		return nil, errors.New("database integrity is broken")
+	}
+	if retry >= len(priorities) {
+		retry = len(priorities) - 1
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(priorities)))
+	targetPriority := int64(priorities[retry])
+
+	filteredByPriority := make([]Ability, 0, len(abilities))
+	for _, ability := range abilities {
+		if lo.FromPtr(ability.Priority) == targetPriority {
+			filteredByPriority = append(filteredByPriority, ability)
+		}
+	}
+	abilities = filteredByPriority
+
 	abilities = filterAbilitiesByRequestPath(abilities, requestPath)
 	channel := Channel{}
 	if len(abilities) > 0 {

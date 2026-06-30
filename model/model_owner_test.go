@@ -113,6 +113,16 @@ func TestGetPreferredModelOwnerChannelTypes(t *testing.T) {
 			found:    true,
 		},
 		{
+			name: "negative priority still orders channels",
+			setup: func(t *testing.T) {
+				insertPreferredOwnerCandidate(t, 1, modelName, "default", constant.ChannelTypeOpenAI, -10, 100, common.ChannelStatusEnabled, true)
+				insertPreferredOwnerCandidate(t, 2, modelName, "default", constant.ChannelTypeCodex, -1, 0, common.ChannelStatusEnabled, true)
+			},
+			groups:   []string{"default"},
+			expected: constant.ChannelTypeCodex,
+			found:    true,
+		},
+		{
 			name: "disabled candidates are ignored",
 			setup: func(t *testing.T) {
 				insertPreferredOwnerCandidate(t, 1, modelName, "default", constant.ChannelTypeCodex, 10, 100, common.ChannelStatusEnabled, false)

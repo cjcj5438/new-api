@@ -263,6 +263,34 @@ func TestClearCurrentChannelAffinityCache(t *testing.T) {
 	require.False(t, ShouldSkipRetryAfterChannelAffinityFailure(ctx))
 }
 
+func TestHandleChannelAffinityFailureClearsRetrySuppressionAndAffinityCache(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cacheKeySuffix := fmt.Sprintf("codex cli trace:default:handle-failure-%d", time.Now().UnixNano())
+	cacheKeyFull := channelAffinityCacheNamespace + ":" + cacheKeySuffix
+	cache := getChannelAffinityCache()
+	require.NoError(t, cache.SetWithTTL(cacheKeySuffix, 9526, time.Minute))
+	t.Cleanup(func() {
+		_, _ = cache.DeleteMany([]string{cacheKeySuffix})
+	})
+
+	ctx := buildChannelAffinityTemplateContextForTest(channelAffinityMeta{
+		CacheKey:   cacheKeyFull,
+		TTLSeconds: 60,
+		RuleName:   "codex cli trace",
+		SkipRetry:  true,
+	})
+	ctx.Set(ginKeyChannelAffinitySkipRetry, true)
+
+	deleted := HandleChannelAffinityFailure(ctx)
+	require.True(t, deleted)
+	require.False(t, ShouldSkipRetryAfterChannelAffinityFailure(ctx))
+
+	_, found, err := cache.Get(cacheKeySuffix)
+	require.NoError(t, err)
+	require.False(t, found)
+}
+
 func TestChannelAffinityHitCodexTemplatePassHeadersEffective(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

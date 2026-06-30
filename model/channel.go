@@ -1000,6 +1000,16 @@ func (channel *Channel) GetOtherSettings() dto.ChannelOtherSettings {
 	return setting
 }
 
+func (channel *Channel) GetPriorityFormula() string {
+	return strings.TrimSpace(channel.GetOtherSettings().PriorityFormula)
+}
+
+func (channel *Channel) SetPriorityFormula(formula string) {
+	settings := channel.GetOtherSettings()
+	settings.PriorityFormula = strings.TrimSpace(formula)
+	channel.SetOtherSettings(settings)
+}
+
 func (channel *Channel) SetOtherSettings(setting dto.ChannelOtherSettings) {
 	settingBytes, err := common.Marshal(setting)
 	if err != nil {

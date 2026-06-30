@@ -203,6 +203,7 @@ export const channelFormSchema = z
     allow_inference_geo: z.boolean().optional(), // OpenAI/Anthropic: inference geography
     allow_speed: z.boolean().optional(), // Anthropic: speed mode control
     claude_beta_query: z.boolean().optional(), // Anthropic: beta query passthrough
+    priority_formula: z.string().optional(),
     // Upstream model update settings (stored in settings JSON)
     upstream_model_update_check_enabled: z.boolean().optional(),
     upstream_model_update_auto_sync_enabled: z.boolean().optional(),
@@ -292,6 +293,27 @@ export const channelFormSchema = z
 
 export type ChannelFormValues = z.infer<typeof channelFormSchema>
 
+export function computePriorityFromFormula(
+  formula: string | undefined,
+  currentPriority: number
+): number {
+  const expr = formula?.trim()
+  if (!expr) return currentPriority
+  try {
+    const fn = new Function('Math', `"use strict"; return Number((${expr}));`)
+    const result = Number(fn(Math))
+    if (!Number.isFinite(result)) return currentPriority
+    const roundedResult =
+      result !== 0 && Math.abs(result) < 1
+        ? Math.round(result * 1000)
+        : Math.round(result)
+    if (roundedResult === 0) return 0
+    return -Math.abs(roundedResult)
+  } catch {
+    return currentPriority
+  }
+}
+
 // ============================================================================
 // Default Form Values
 // ============================================================================
@@ -342,6 +364,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   allow_inference_geo: false,
   allow_speed: false,
   claude_beta_query: false,
+  priority_formula: '',
   upstream_model_update_check_enabled: false,
   upstream_model_update_auto_sync_enabled: false,
   upstream_model_update_ignored_models: '',
@@ -397,6 +420,7 @@ export function transformChannelToFormDefaults(
   let allowInferenceGeo = false
   let allowSpeed = false
   let claudeBetaQuery = false
+  let priorityFormula = ''
   let upstreamModelUpdateCheckEnabled = false
   let upstreamModelUpdateAutoSyncEnabled = false
   let upstreamModelUpdateIgnoredModels = ''
@@ -416,6 +440,7 @@ export function transformChannelToFormDefaults(
       allowInferenceGeo = parsed.allow_inference_geo === true
       allowSpeed = parsed.allow_speed === true
       claudeBetaQuery = parsed.claude_beta_query === true
+      priorityFormula = parsed.priority_formula || ''
       upstreamModelUpdateCheckEnabled =
         parsed.upstream_model_update_check_enabled === true
       upstreamModelUpdateAutoSyncEnabled =
@@ -473,6 +498,7 @@ export function transformChannelToFormDefaults(
     allow_inference_geo: allowInferenceGeo,
     allow_speed: allowSpeed,
     claude_beta_query: claudeBetaQuery,
+    priority_formula: priorityFormula,
     allow_safety_identifier: allowSafetyIdentifier,
     upstream_model_update_check_enabled: upstreamModelUpdateCheckEnabled,
     upstream_model_update_auto_sync_enabled: upstreamModelUpdateAutoSyncEnabled,
@@ -576,6 +602,12 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
     if ('claude_beta_query' in settingsObj) delete settingsObj.claude_beta_query
   }
 
+  if (formData.priority_formula?.trim()) {
+    settingsObj.priority_formula = formData.priority_formula.trim()
+  } else if ('priority_formula' in settingsObj) {
+    delete settingsObj.priority_formula
+  }
+
   // Upstream model update settings (for model-fetchable channel types)
   if (MODEL_FETCHABLE_TYPES.has(formData.type)) {
     settingsObj.upstream_model_update_check_enabled =
@@ -632,6 +664,10 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
   channel: Partial<Channel>
 } {
   const mode = formData.multi_key_mode || 'single'
+  const computedPriority = computePriorityFromFormula(
+    formData.priority_formula,
+    formData.priority ?? 0
+  )
 
   const channel: Partial<Channel> = {
     name: formData.name,
@@ -642,7 +678,10 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
     models: formData.models,
     group: formatGroups(formData.group),
     model_mapping: formData.model_mapping || null,
-    priority: formData.priority || null,
+    priority:
+      formData.priority_formula?.trim() || formData.priority !== undefined
+        ? computedPriority
+        : null,
     weight: formData.weight || null,
     test_model: formData.test_model || null,
     auto_ban: formData.auto_ban ?? 1,
@@ -681,6 +720,10 @@ export function transformFormDataToUpdatePayload(
   formData: ChannelFormValues,
   channelId: number
 ): Partial<Channel> {
+  const computedPriority = computePriorityFromFormula(
+    formData.priority_formula,
+    formData.priority ?? 0
+  )
   const payload: Partial<Channel> = {
     id: channelId,
     name: formData.name,
@@ -690,7 +733,7 @@ export function transformFormDataToUpdatePayload(
     models: formData.models,
     group: formatGroups(formData.group),
     model_mapping: formData.model_mapping || null,
-    priority: formData.priority ?? 0,
+    priority: computedPriority,
     weight: formData.weight ?? 0,
     test_model: formData.test_model || null,
     auto_ban: formData.auto_ban ?? 1,
